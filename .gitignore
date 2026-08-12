@@ -1,0 +1,14 @@
+node_modules/
+
+.env
+.env.local
+.env.*.local
+
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+projects/*/.auth/
+
+.DS_Store
