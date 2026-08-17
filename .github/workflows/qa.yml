@@ -36,6 +36,8 @@ jobs:
         with:
           # Smoke only exercises art-bridge, so only its repo is needed.
           art-bridge-repo-url: ${{ secrets.ART_BRIDGE_REPO_URL }}
+          # iPhone emulator defaults to webkit; Desktop Chrome to chromium.
+          browsers: ${{ matrix.mode == 'emulator' && 'webkit' || 'chromium' }}
 
       - name: Run smoke tests (${{ matrix.mode }} mode)
         # Fast gate: art-bridge login + home specs only, in both run modes.
