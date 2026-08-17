@@ -112,6 +112,41 @@ pnpm exec playwright test --project morning-check
 Targets and login config live in `projects/morning-check/sites.config.ts`; URLs and
 credentials come from `.env` (or workflow secrets).
 
+## GitHub Actions secrets
+
+The workflows read everything from repo secrets — nothing is committed. Create them at
+**Settings → Secrets and variables → Actions → New repository secret** (repo admin
+required) with the exact names below:
+
+| Secret | Used by | Purpose |
+|---|---|---|
+| `ART_BRIDGE_URL` | qa.yml | art-bridge deployed base URL |
+| `HOT_DEAL_URL` | qa.yml | hot-deal deployed base URL |
+| `OH_GOOD_URL` | qa.yml | oh-good deployed base URL |
+| `ART_BRIDGE_PASSWORD` | qa.yml | art-bridge site-wide password gate |
+| `HOT_DEAL_SITE_PASSWORD` | qa.yml | hot-deal site-wide password gate |
+| `ART_BRIDGE_REPO_URL` | qa.yml (optional) | clone art-bridge and run it locally (docker) instead of the deployed URL |
+| `HOT_DEAL_REPO_URL` | qa.yml (optional) | clone hot-deal and run it locally instead of the deployed URL |
+| `OH_GOOD_REPO_URL` | qa.yml (optional) | clone oh-good and run it locally instead of the deployed URL |
+| `TELEGRAM_BOT_TOKEN` | morning-check.yml, aug19-regression.yml | bot token for the Telegram summary |
+| `TELEGRAM_CHAT_ID` | morning-check.yml, aug19-regression.yml | Telegram chat/group that receives the summary |
+| `ART_BRIDGE_STAGING_URL` | morning-check.yml | art-bridge staging URL |
+| `ART_BRIDGE_USER` / `ART_BRIDGE_PASS` | morning-check.yml | art-bridge login credentials |
+| `HOT_DEAL_USER` / `HOT_DEAL_PASS` | morning-check.yml | hot-deal login credentials |
+| `OH_GOOD_MAIN_URL` / `OH_GOOD_STAGING_URL` | morning-check.yml | oh-good URLs |
+| `HANDS_MAIN_URL` / `HANDS_STAGING_URL` | morning-check.yml (optional) | hands-on-trip URLs |
+
+Notes:
+- **qa.yml** also needs `ART_BRIDGE_URL`, `HOT_DEAL_URL`, `OH_GOOD_URL` even when app repos
+  are cloned — uncloned apps fall back to them, and the smoke job always uses them.
+- **morning-check.yml** falls back to hardcoded defaults for keys it doesn't pass
+  (`ART_BRIDGE_MAIN_URL` → `https://art-bridge.kr`, `HOT_DEAL_MAIN_URL` →
+  `https://hot-deal.shop`, `HOT_DEAL_STAGING_URL` → `https://staging.hot-deal.shop`), so
+  only set secrets that differ from those.
+- Until a workflow's secrets exist, the run still executes: morning-check *skips* the
+  affected checks, qa.yml *fails* the affected tests. The first push after creating the
+  secrets can be triggered from the Actions tab (Re-run jobs / workflow_dispatch).
+
 ## Reports
 
 An HTML report is written to `playwright-report/` after each run; open it with:
