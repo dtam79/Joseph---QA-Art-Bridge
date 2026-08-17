@@ -17,8 +17,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ART_BRIDGE_STAGING_URL: ${{ secrets.ART_BRIDGE_STAGING_URL }}
+          ART_BRIDGE_PASSWORD: ${{ secrets.ART_BRIDGE_PASSWORD }}
           ART_BRIDGE_USER: ${{ secrets.ART_BRIDGE_USER }}
           ART_BRIDGE_PASS: ${{ secrets.ART_BRIDGE_PASS }}
+          HOT_DEAL_SITE_PASSWORD: ${{ secrets.HOT_DEAL_SITE_PASSWORD }}
           HOT_DEAL_USER: ${{ secrets.HOT_DEAL_USER }}
           HOT_DEAL_PASS: ${{ secrets.HOT_DEAL_PASS }}
           OH_GOOD_MAIN_URL: ${{ secrets.OH_GOOD_MAIN_URL }}
