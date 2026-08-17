@@ -1,6 +1,8 @@
 name: Morning Check
 on:
-  schedule: [{ cron: "*/10 * * * *" }] # TEMP TEST: every 10 min — revert to 30 1 * * * (08:00 MMT) after verifying Telegram delivery
+  schedule:
+    # TEMP TEST: every 10 min — revert to 30 1 * * * (08:00 MMT) after verifying Telegram delivery
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 jobs:
   check:
