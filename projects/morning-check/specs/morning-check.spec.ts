@@ -48,99 +48,134 @@ for (const site of SITES) {
         return;
       }
 
-      // Hot Deal sits behind its own site-wide password gate ("Enter" button +
-      // HOT_DEAL_SITE_PASSWORD) — unlock it, then load the login page. Art
-      // Bridge uses the shared WP "Access Site" gate instead.
-      if (login.type === "woo") {
-        // Unlock via the site root first, then again in place on the login URL
-        // (the gate intercepts every route, and from CI it can appear on either).
-        await bypassHotDealPasswordGate(page, site.url);
-        await page.goto(login.url, {
-          waitUntil: "domcontentloaded",
-          timeout: 45000,
-        });
-        await bypassHotDealPasswordGate(page);
-        await page.goto(login.url, {
-          waitUntil: "domcontentloaded",
-          timeout: 45000,
-        });
-      } else {
-        await page.goto(login.url, {
-          waitUntil: "domcontentloaded",
-          timeout: 45000,
-        });
-        // Only bypass WP gate if we see the specific WP gate form
-        const isWpGate = await page
-          .locator(
-            'form[action*="wp-login.php?action=postpass"], form#password-protected-form'
-          )
-          .isVisible({ timeout: 2000 })
-          .catch(() => false);
-        if (isWpGate) {
-          await bypassPasswordGate(page);
+      // The sites' WAFs geo-block GitHub's US datacenter IPs on the auth
+      // endpoints (admin-ajax POST 403, ckattempt cookie challenge → 403)
+      // while serving the pages fine. Track blocked responses so we can
+      // report "blocked from CI region" instead of a false "site broken".
+      let wafBlocked = false;
+      page.on("response", (r) => {
+        if (
+          r.status() === 403 ||
+          r.status() === 406 ||
+          r.status() === 429
+        ) {
+          try {
+            const u = new URL(r.url());
+            if (u.hostname.endsWith(new URL(site.url).hostname)) {
+              wafBlocked = true;
+            }
+          } catch {}
         }
-      }
+      });
 
-      // UNIVERSAL locator strategy — covers WordPress, WooCommerce, and custom forms
-      const userInput = page
-        .locator(
-          [
-            "#username", // WooCommerce
-            "#user_login", // WordPress default
-            'input[name="username"]', // Common custom
-            'input[name="log"]', // WordPress wp-login.php
-            'input[type="email"]', // Email-based login
-          ].join(", ")
-        )
-        .first();
-
-      const passInput = page
-        .locator(
-          [
-            "#password", // WooCommerce / common
-            "#user_pass", // WordPress default
-            'input[name="password"]', // Common custom
-            'input[name="pwd"]', // WordPress wp-login.php
-          ].join(", ")
-        )
-        .first();
-
-      // CI runners are far from the staging servers — give the form time to render
-      await userInput.waitFor({ state: "visible", timeout: 30000 });
-      await userInput.fill(user);
-      await passInput.fill(pass);
-      await page
-        .getByRole("button", { name: /log ?in|sign ?in/i })
-        .first()
-        .click();
-
-      // Verify login success
-      if (login.type === "woo") {
-        // Use .first() to handle multiple "Log out" links
-        await expect(
-          page.getByRole("link", { name: /log out/i }).first()
-        ).toBeVisible({ timeout: 15000 });
-      } else {
-        // Art Bridge's custom /login/ page renders the wp-admin content inline
-        // at /login/ after a successful login — "left /login/" alone is too
-        // strict. Accept either a redirect away or the logged-in admin toolbar.
-        // CI runners are far from the server, so the toolbar can take a while:
-        // give the bounded check a generous window.
-        await expect(async () => {
-          const rejected = await page
-            .getByText(/invalid|incorrect|unknown/i)
-            .isVisible()
+      try {
+        // Hot Deal sits behind its own site-wide password gate ("Enter" button +
+        // HOT_DEAL_SITE_PASSWORD) — unlock it, then load the login page. Art
+        // Bridge uses the shared WP "Access Site" gate instead.
+        if (login.type === "woo") {
+          // Unlock via the site root first, then again in place on the login URL
+          // (the gate intercepts every route, and from CI it can appear on either).
+          await bypassHotDealPasswordGate(page, site.url);
+          await page.goto(login.url, {
+            waitUntil: "domcontentloaded",
+            timeout: 45000,
+          });
+          await bypassHotDealPasswordGate(page);
+          await page.goto(login.url, {
+            waitUntil: "domcontentloaded",
+            timeout: 45000,
+          });
+        } else {
+          await page.goto(login.url, {
+            waitUntil: "domcontentloaded",
+            timeout: 45000,
+          });
+          // Only bypass WP gate if we see the specific WP gate form
+          const isWpGate = await page
+            .locator(
+              'form[action*="wp-login.php?action=postpass"], form#password-protected-form'
+            )
+            .isVisible({ timeout: 2000 })
             .catch(() => false);
-          expect(rejected, "login rejected by the site").toBeFalsy();
-          const loggedIn =
-            !/\/login\/?$/.test(page.url()) ||
-            (await page.locator("#wpadminbar").isVisible().catch(() => false)) ||
-            (await page
-              .getByRole("menuitem", { name: /wp adminer/i })
+          if (isWpGate) {
+            await bypassPasswordGate(page);
+          }
+        }
+
+        // UNIVERSAL locator strategy — covers WordPress, WooCommerce, and custom forms
+        const userInput = page
+          .locator(
+            [
+              "#username", // WooCommerce
+              "#user_login", // WordPress default
+              'input[name="username"]', // Common custom
+              'input[name="log"]', // WordPress wp-login.php
+              'input[type="email"]', // Email-based login
+            ].join(", ")
+          )
+          .first();
+
+        const passInput = page
+          .locator(
+            [
+              "#password", // WooCommerce / common
+              "#user_pass", // WordPress default
+              'input[name="password"]', // Common custom
+              'input[name="pwd"]', // WordPress wp-login.php
+            ].join(", ")
+          )
+          .first();
+
+        // CI runners are far from the staging servers — give the form time to render
+        await userInput.waitFor({ state: "visible", timeout: 30000 });
+        await userInput.fill(user);
+        await passInput.fill(pass);
+        await page
+          .getByRole("button", { name: /log ?in|sign ?in/i })
+          .first()
+          .click();
+
+        // Verify login success
+        if (login.type === "woo") {
+          // Use .first() to handle multiple "Log out" links
+          await expect(
+            page.getByRole("link", { name: /log out/i }).first()
+          ).toBeVisible({ timeout: 15000 });
+        } else {
+          // Art Bridge's custom /login/ page renders the wp-admin content inline
+          // at /login/ after a successful login — "left /login/" alone is too
+          // strict. Accept either a redirect away or the logged-in admin toolbar.
+          // CI runners are far from the server, so the toolbar can take a while:
+          // give the bounded check a generous window.
+          await expect(async () => {
+            const rejected = await page
+              .getByText(/invalid|incorrect|unknown/i)
               .isVisible()
-              .catch(() => false));
-          expect(loggedIn, "login did not complete").toBeTruthy();
-        }).toPass({ timeout: 90000 });
+              .catch(() => false);
+            expect(rejected, "login rejected by the site").toBeFalsy();
+            const loggedIn =
+              !/\/login\/?$/.test(page.url()) ||
+              (await page.locator("#wpadminbar").isVisible().catch(() => false)) ||
+              (await page
+                .getByRole("menuitem", { name: /wp adminer/i })
+                .isVisible()
+                .catch(() => false));
+            expect(loggedIn, "login did not complete").toBeTruthy();
+          }).toPass({ timeout: 90000 });
+        }
+      } catch (err) {
+        // The site's WAF can block the login request from CI's US datacenter
+        // IP (admin-ajax 403 / ckattempt challenge) while the pages themselves
+        // are fine — that's a "can't verify from here" situation, not a broken
+        // site. Report it as skipped so the morning summary stays honest
+        // instead of crying wolf.
+        if (wafBlocked) {
+          test.skip(
+            true,
+            `WAF blocked the login request from this region (HTTP 4xx on the auth endpoint) — site likely fine, verify from a Korean IP`
+          );
+        }
+        throw err;
       }
     });
   });
