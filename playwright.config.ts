@@ -79,10 +79,13 @@ function baseURLFor(
   if (wsURL && process.env[`${prefix}_WS_COMMAND`]) return wsURL;
   // <APP>_URL is the canonical key (used by CI / qa.yml); fall back to the
   // main/staging pairs that the local .env and morning-check workflow use.
+  // Treat empty strings (e.g. an unset secret passed as "") as missing so
+  // the next candidate is tried instead of navigating to an invalid URL.
+  const url = (k: string) => { const v = process.env[k]; return v ? v : undefined; };
   return (
-    process.env[`${prefix}_URL`] ??
-    process.env[`${prefix}_STAGING_URL`] ??
-    process.env[`${prefix}_MAIN_URL`]
+    url(`${prefix}_URL`) ??
+    url(`${prefix}_STAGING_URL`) ??
+    url(`${prefix}_MAIN_URL`)
   );
 }
 
