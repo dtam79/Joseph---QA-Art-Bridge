@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // The suite runs through tsx/esbuild (extensionless imports are the
+    // project convention), so "bundler" resolution is the right typecheck mode.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": ["projects", "playwright.config.ts", "shared"]
+}

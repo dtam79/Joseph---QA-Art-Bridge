@@ -1,0 +1,87 @@
+name: QA Automation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup QA environment (typecheck only)
+        uses: ./.github/actions/setup
+        with:
+          clone-apps: 'false'
+          install-browsers: 'false'
+
+      - name: Typecheck specs, pages and config
+        run: pnpm typecheck
+
+  smoke-test:
+    name: Smoke (${{ matrix.mode }} mode)
+    needs: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        mode: [emulator, browser]
+    steps:
+      - name: Setup QA environment
+        uses: ./.github/actions/setup
+        with:
+          # Smoke only exercises art-bridge, so only its repo is needed.
+          art-bridge-repo-url: ${{ secrets.ART_BRIDGE_REPO_URL }}
+
+      - name: Run smoke tests (${{ matrix.mode }} mode)
+        # Fast gate: art-bridge login + home specs only, in both run modes.
+        run: RUN_MODE=${{ matrix.mode }} pnpm exec playwright test --project=art-bridge projects/art-bridge/specs/login.spec.ts projects/art-bridge/specs/home.spec.ts
+        env:
+          ART_BRIDGE_URL: ${{ secrets.ART_BRIDGE_URL }}
+          ART_BRIDGE_PASSWORD: ${{ secrets.ART_BRIDGE_PASSWORD }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-smoke-${{ matrix.mode }}
+          path: playwright-report
+          retention-days: 14
+
+  test:
+    name: Run tests (${{ matrix.mode }} · ${{ matrix.browser }})
+    needs: [smoke-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [emulator, browser]
+        browser: [chromium, firefox, webkit]
+    steps:
+      - name: Setup QA environment
+        uses: ./.github/actions/setup
+        with:
+          browsers: ${{ matrix.browser }}
+          art-bridge-repo-url: ${{ secrets.ART_BRIDGE_REPO_URL }}
+          hot-deal-repo-url: ${{ secrets.HOT_DEAL_REPO_URL }}
+          oh-good-repo-url: ${{ secrets.OH_GOOD_REPO_URL }}
+
+      - name: Run tests (${{ matrix.mode }} · ${{ matrix.browser }})
+        run: RUN_MODE=${{ matrix.mode }} BROWSER=${{ matrix.browser }} pnpm test
+        env:
+          ART_BRIDGE_URL: ${{ secrets.ART_BRIDGE_URL }}
+          HOT_DEAL_URL: ${{ secrets.HOT_DEAL_URL }}
+          OH_GOOD_URL: ${{ secrets.OH_GOOD_URL }}
+          ART_BRIDGE_PASSWORD: ${{ secrets.ART_BRIDGE_PASSWORD }}
+          HOT_DEAL_SITE_PASSWORD: ${{ secrets.HOT_DEAL_SITE_PASSWORD }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.mode }}
+          path: playwright-report
+          retention-days: 30

@@ -11,4 +11,8 @@ playwright/.cache/
 
 projects/*/.auth/
 
+# Evidence snapshots/screenshots (written by saveEvidence() on every run;
+# regenerated locally, not consumed by any spec)
+projects/*/data/
+
 .DS_Store

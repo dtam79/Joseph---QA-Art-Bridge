@@ -1,0 +1,93 @@
+name: Setup QA environment
+description: >-
+  Checkout the repo, install pnpm/Node/dependencies/Playwright browsers, and
+  optionally clone the app repos so Playwright's webServer can boot them locally.
+
+inputs:
+  node-version:
+    description: Node.js version to use
+    required: false
+    default: '22'
+  pnpm-version:
+    description: pnpm version to use
+    required: false
+    default: '11'
+  clone-apps:
+    description: Whether to clone app repos and configure local web servers
+    required: false
+    default: 'true'
+  install-browsers:
+    description: Whether to install Playwright browsers (not needed for typecheck-only jobs)
+    required: false
+    default: 'true'
+  browsers:
+    description: Space-separated browser engines to install (chromium firefox webkit)
+    required: false
+    default: 'chromium'
+  art-bridge-repo-url:
+    description: Git URL of the art-bridge app repo (cloned when clone-apps is true)
+    required: false
+  hot-deal-repo-url:
+    description: Git URL of the hot-deal app repo (cloned when clone-apps is true)
+    required: false
+  oh-good-repo-url:
+    description: Git URL of the oh-good app repo (cloned when clone-apps is true)
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Install Playwright browsers
+      if: inputs.install-browsers == 'true'
+      shell: bash
+      run: pnpm exec playwright install --with-deps ${{ inputs.browsers }}
+
+    - name: Checkout apps and configure local web servers
+      # Clones each app repo whose URL is provided and points Playwright's
+      # webServer at it (see playwright.config.ts). Apps without a URL keep
+      # using their deployed <APP>_URL secret. Env vars written here are
+      # job-scoped, so the run-tests step picks them up automatically.
+      if: inputs.clone-apps == 'true'
+      shell: bash
+      env:
+        ART_BRIDGE_REPO_URL: ${{ inputs.art-bridge-repo-url }}
+        HOT_DEAL_REPO_URL: ${{ inputs.hot-deal-repo-url }}
+        OH_GOOD_REPO_URL: ${{ inputs.oh-good-repo-url }}
+      run: |
+        if [ -n "$ART_BRIDGE_REPO_URL" ]; then
+          git clone --depth 1 "$ART_BRIDGE_REPO_URL" ../art-bridge
+          echo "ART_BRIDGE_WS_COMMAND=docker compose up -d --wait" >> "$GITHUB_ENV"
+          echo "ART_BRIDGE_WS_URL=http://localhost:3000" >> "$GITHUB_ENV"
+          echo "ART_BRIDGE_WS_CWD=../art-bridge" >> "$GITHUB_ENV"
+        fi
+        if [ -n "$HOT_DEAL_REPO_URL" ]; then
+          git clone --depth 1 "$HOT_DEAL_REPO_URL" ../hot-deal
+          echo "HOT_DEAL_WS_COMMAND=docker compose up -d --wait" >> "$GITHUB_ENV"
+          echo "HOT_DEAL_WS_URL=http://localhost:3001" >> "$GITHUB_ENV"
+          echo "HOT_DEAL_WS_CWD=../hot-deal" >> "$GITHUB_ENV"
+        fi
+        if [ -n "$OH_GOOD_REPO_URL" ]; then
+          git clone --depth 1 "$OH_GOOD_REPO_URL" ../oh-good
+          echo "OH_GOOD_WS_COMMAND=docker compose up -d --wait" >> "$GITHUB_ENV"
+          echo "OH_GOOD_WS_URL=http://localhost:3002" >> "$GITHUB_ENV"
+          echo "OH_GOOD_WS_CWD=../oh-good" >> "$GITHUB_ENV"
+        fi

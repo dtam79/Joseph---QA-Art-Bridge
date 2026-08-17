@@ -32,7 +32,9 @@ test("DISCOVERY: map the real site structure", async ({ page }) => {
       const snapshot = await page.locator("body").ariaSnapshot();
       console.log(snapshot);
     } catch (error) {
-      console.log(`❌ FAILED to load ${pageTitle}: ${error.message}`);
+      console.log(
+        `❌ FAILED to load ${pageTitle}: ${(error as Error).message}`
+      );
     }
   };
 
@@ -73,7 +75,7 @@ test("DISCOVERY: map the real site structure", async ({ page }) => {
       console.log('⚠️  No "Guest User Sign in" link found on Profile page');
     }
   } catch (error) {
-    console.log(`❌ Profile -> Sign In flow failed: ${error.message}`);
+    console.log(`❌ Profile -> Sign In flow failed: ${(error as Error).message}`);
   }
 
   // 5. Common WordPress routes
