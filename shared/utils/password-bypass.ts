@@ -33,7 +33,9 @@ export async function bypassHotDealPasswordGate(page: Page, url?: string) {
     }
   }
   const passwordBox = page.getByRole("textbox", { name: "Enter password" });
-  if (await passwordBox.isVisible({ timeout: 10000 }).catch(() => false)) {
+  // The gate page can take a while to render its form (observed >10s even
+  // locally; CI runners are slower) — give it a generous bounded window.
+  if (await passwordBox.isVisible({ timeout: 30000 }).catch(() => false)) {
     if (process.env.HOT_DEAL_SITE_PASSWORD) {
       await passwordBox.fill(process.env.HOT_DEAL_SITE_PASSWORD);
       await page.getByRole("button", { name: "Enter" }).click();

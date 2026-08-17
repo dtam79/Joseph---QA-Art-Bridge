@@ -104,6 +104,9 @@ export default defineConfig({
       testDir: "./projects/morning-check/specs",
       fullyParallel: true,
       retries: 1,
+      // Login flows hit slow password gates + far-away staging servers — the
+      // 60s default is too tight for the bounded wait chain.
+      timeout: 180_000,
       use: {
         headless: true,
         // FIX 3: Spoof a real desktop browser to bypass basic WAFs

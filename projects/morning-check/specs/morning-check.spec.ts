@@ -99,7 +99,7 @@ for (const site of SITES) {
         .first();
 
       // CI runners are far from the staging servers — give the form time to render
-      await userInput.waitFor({ state: "visible", timeout: 20000 });
+      await userInput.waitFor({ state: "visible", timeout: 30000 });
       await userInput.fill(user);
       await passInput.fill(pass);
       await page
@@ -130,7 +130,7 @@ for (const site of SITES) {
               .isVisible()
               .catch(() => false));
           expect(loggedIn, "login did not complete").toBeTruthy();
-        }).toPass({ timeout: 30000 });
+        }).toPass({ timeout: 45000 });
       }
     });
   });
