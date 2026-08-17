@@ -15,3 +15,11 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OH_GOOD_URL: ${{ secrets.OH_GOOD_URL }}
+          HOT_DEAL_URL: ${{ secrets.HOT_DEAL_URL }}
+          HOT_DEAL_SITE_PASSWORD: ${{ secrets.HOT_DEAL_SITE_PASSWORD }}
+          # Fallbacks for the new main/staging key scheme (morning-check style)
+          OH_GOOD_MAIN_URL: ${{ secrets.OH_GOOD_MAIN_URL }}
+          OH_GOOD_STAGING_URL: ${{ secrets.OH_GOOD_STAGING_URL }}
+          HOT_DEAL_MAIN_URL: ${{ secrets.HOT_DEAL_MAIN_URL }}
+          HOT_DEAL_STAGING_URL: ${{ secrets.HOT_DEAL_STAGING_URL }}

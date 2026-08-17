@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - name: Setup QA environment (typecheck only)
         uses: ./.github/actions/setup
         with:
@@ -29,6 +30,7 @@ jobs:
       matrix:
         mode: [emulator, browser]
     steps:
+      - uses: actions/checkout@v4
       - name: Setup QA environment
         uses: ./.github/actions/setup
         with:
@@ -61,6 +63,7 @@ jobs:
         mode: [emulator, browser]
         browser: [chromium, firefox, webkit]
     steps:
+      - uses: actions/checkout@v4
       - name: Setup QA environment
         uses: ./.github/actions/setup
         with:
