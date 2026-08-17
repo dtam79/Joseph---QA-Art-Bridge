@@ -27,3 +27,10 @@ jobs:
           OH_GOOD_STAGING_URL: ${{ secrets.OH_GOOD_STAGING_URL }}
           HANDS_MAIN_URL: ${{ secrets.HANDS_MAIN_URL }}
           HANDS_STAGING_URL: ${{ secrets.HANDS_STAGING_URL }}
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: morning-check-artifacts
+          path: test-results/
+          if-no-files-found: ignore

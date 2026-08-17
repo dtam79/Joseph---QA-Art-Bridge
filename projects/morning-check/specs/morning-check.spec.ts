@@ -49,10 +49,17 @@ for (const site of SITES) {
       }
 
       // Hot Deal sits behind its own site-wide password gate ("Enter" button +
-      // HOT_DEAL_SITE_PASSWORD) — unlock via the site root first, then load the
-      // login page. Art Bridge uses the shared WP "Access Site" gate instead.
+      // HOT_DEAL_SITE_PASSWORD) — unlock it, then load the login page. Art
+      // Bridge uses the shared WP "Access Site" gate instead.
       if (login.type === "woo") {
+        // Unlock via the site root first, then again in place on the login URL
+        // (the gate intercepts every route, and from CI it can appear on either).
         await bypassHotDealPasswordGate(page, site.url);
+        await page.goto(login.url, {
+          waitUntil: "domcontentloaded",
+          timeout: 45000,
+        });
+        await bypassHotDealPasswordGate(page);
         await page.goto(login.url, {
           waitUntil: "domcontentloaded",
           timeout: 45000,
@@ -117,6 +124,8 @@ for (const site of SITES) {
         // Art Bridge's custom /login/ page renders the wp-admin content inline
         // at /login/ after a successful login — "left /login/" alone is too
         // strict. Accept either a redirect away or the logged-in admin toolbar.
+        // CI runners are far from the server, so the toolbar can take a while:
+        // give the bounded check a generous window.
         await expect(async () => {
           const rejected = await page
             .getByText(/invalid|incorrect|unknown/i)
@@ -125,12 +134,13 @@ for (const site of SITES) {
           expect(rejected, "login rejected by the site").toBeFalsy();
           const loggedIn =
             !/\/login\/?$/.test(page.url()) ||
+            (await page.locator("#wpadminbar").isVisible().catch(() => false)) ||
             (await page
               .getByRole("menuitem", { name: /wp adminer/i })
               .isVisible()
               .catch(() => false));
           expect(loggedIn, "login did not complete").toBeTruthy();
-        }).toPass({ timeout: 45000 });
+        }).toPass({ timeout: 90000 });
       }
     });
   });
