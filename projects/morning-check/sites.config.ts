@@ -2,6 +2,8 @@ export type SiteTarget = {
   name: string;
   env: "main" | "staging";
   url: string;
+  /** Extra pages to probe for accessibility (login, register, …). */
+  pages?: { label: string; path: string }[];
   login?: { type: "wp" | "woo"; url: string; userEnv: string; passEnv: string };
 };
 
@@ -14,12 +16,19 @@ const L = (
   p: string
 ) => (base ? { type, url: base + path, userEnv: u, passEnv: p } : undefined);
 
+// Auth pages every app exposes (live-verified HTTP 200 on all targets)
+const AUTH_PAGES: { label: string; path: string }[] = [
+  { label: "login", path: "/login/" },
+  { label: "register", path: "/register/" },
+];
+
 export const SITES: SiteTarget[] = [
   // Art Bridge (Staging only)
   {
     name: "Art Bridge",
     env: "staging",
     url: e.ART_BRIDGE_STAGING_URL ?? "",
+    pages: AUTH_PAGES,
     login: L(
       "wp",
       e.ART_BRIDGE_STAGING_URL ?? "",
@@ -34,6 +43,7 @@ export const SITES: SiteTarget[] = [
     name: "Hot Deal",
     env: "main",
     url: e.HOT_DEAL_MAIN_URL ?? "https://hot-deal.shop",
+    pages: AUTH_PAGES,
     login: L(
       "woo",
       e.HOT_DEAL_MAIN_URL ?? "https://hot-deal.shop",
@@ -46,6 +56,7 @@ export const SITES: SiteTarget[] = [
     name: "Hot Deal",
     env: "staging",
     url: e.HOT_DEAL_STAGING_URL ?? "https://staging.hot-deal.shop",
+    pages: AUTH_PAGES,
     login: L(
       "woo",
       e.HOT_DEAL_STAGING_URL ?? "https://staging.hot-deal.shop",
@@ -60,17 +71,20 @@ export const SITES: SiteTarget[] = [
     name: "Oh-Good",
     env: "main",
     url: e.OH_GOOD_MAIN_URL ?? "https://oh-good.net",
+    pages: AUTH_PAGES,
   },
   {
     name: "Oh-Good",
     env: "staging",
     url: e.OH_GOOD_STAGING_URL ?? "https://staging.oh-good.net",
+    pages: AUTH_PAGES,
   },
 
-  // Hands-On Trip (Staging only - dev.oh-good.net)
+  // Hands-On Trip — no real URL/credentials configured yet, so it stays
+  // skipped until HANDS_MAIN_URL / HANDS_STAGING_URL are set.
   {
     name: "Hands-On Trip",
     env: "staging",
-    url: e.HANDS_STAGING_URL ?? "https://dev.oh-good.net",
+    url: e.HANDS_STAGING_URL ?? "",
   },
 ];
