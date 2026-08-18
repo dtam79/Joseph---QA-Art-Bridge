@@ -64,8 +64,10 @@ export class HomePage {
   }
 
   async goto() {
-    // bypassHotDealPasswordGate lands on "/" and unlocks the site
-    await bypassHotDealPasswordGate(this.page);
+    // Pass the root URL so the gate bypass navigates there first (it only
+    // checks the current page otherwise — on a fresh test the page is still
+    // about:blank), then wait for the search box that proves the site loaded.
+    await bypassHotDealPasswordGate(this.page, "/");
     await this.searchBox.waitFor({ state: "visible" });
   }
 }
