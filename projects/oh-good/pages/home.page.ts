@@ -1,4 +1,5 @@
 import { Page, Locator } from "@playwright/test";
+import { gotoWithRetry } from "../../../shared/utils/navigation";
 
 export class HomePage {
   readonly page: Page;
@@ -90,9 +91,6 @@ export class HomePage {
   }
 
   async goto() {
-    // Staging is slow under parallel load and the load event can stall —
-    // navigate with "commit" and wait for the page heading instead.
-    await this.page.goto("/", { waitUntil: "commit", timeout: 60000 });
-    await this.brandLink.waitFor({ state: "visible" });
+    await gotoWithRetry(this.page, "/", this.brandLink);
   }
 }

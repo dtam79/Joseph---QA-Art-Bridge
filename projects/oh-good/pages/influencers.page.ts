@@ -1,4 +1,5 @@
 import { Page, Locator } from "@playwright/test";
+import { gotoWithRetry } from "../../../shared/utils/navigation";
 
 export class InfluencersPage {
   readonly page: Page;
@@ -28,14 +29,6 @@ export class InfluencersPage {
   }
 
   async goto() {
-    // Staging is slow under parallel load and the load event can stall —
-    // navigate with "commit" and wait for the page heading instead. The
-    // <search> section hydrates after the heading, so wait for the combobox
-    // too — it's the signal that the interactive search UI is ready.
-    await this.page.goto("/influencers/", {
-      waitUntil: "commit",
-      timeout: 60000,
-    });
-    await this.searchBox.waitFor({ state: "visible" });
+    await gotoWithRetry(this.page, "/influencers/", this.searchBox);
   }
 }

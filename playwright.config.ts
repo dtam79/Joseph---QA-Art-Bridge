@@ -139,8 +139,11 @@ export default defineConfig({
       name: "oh-good",
       testDir: "./projects/oh-good/specs",
       // Staging is slow under parallel load — one retry absorbs transient
-      // nav/timeout flakes (discovery, register flow, influencers).
+      // nav/timeout flakes (discovery, register flow, influencers). The long
+      // budget also leaves room for the page objects' bounded goto retries
+      // (3 attempts × 50s + backoff) when the server throttles under load.
       retries: 1,
+      timeout: 180_000,
       use: {
         ...devices[deviceFor("oh-good")],
         ...browserOverride,

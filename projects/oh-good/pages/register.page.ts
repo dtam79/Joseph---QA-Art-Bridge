@@ -1,4 +1,5 @@
 import { Page, Locator } from "@playwright/test";
+import { gotoWithRetry } from "../../../shared/utils/navigation";
 
 export class RegisterPage {
   readonly page: Page;
@@ -96,10 +97,7 @@ export class RegisterPage {
   }
 
   async goto() {
-    // Staging is slow under parallel load and the load event can stall —
-    // navigate with "commit" and wait for the page heading instead.
-    await this.page.goto("/register/", { waitUntil: "commit", timeout: 60000 });
-    await this.accountTypeHeading.waitFor({ state: "visible" });
+    await gotoWithRetry(this.page, "/register/", this.accountTypeHeading);
   }
 
   async chooseAccountType(accountType: "Advertiser" | "Influencer") {

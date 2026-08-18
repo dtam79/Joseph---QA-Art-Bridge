@@ -1,4 +1,5 @@
 import { Page, Locator } from "@playwright/test";
+import { gotoWithRetry } from "../../../shared/utils/navigation";
 
 /**
  * Generic page object for guest-accessible /admin-dashboard/ subpages
@@ -25,12 +26,6 @@ export class AdminSubpage {
   }
 
   async goto(path: string) {
-    // Admin pages are slow and never fire the load event — navigate with
-    // "commit" and wait for the page heading instead.
-    await this.page.goto(path, {
-      waitUntil: "commit",
-      timeout: 60000,
-    });
-    await this.heading.waitFor({ state: "visible", timeout: 60000 });
+    await gotoWithRetry(this.page, path, this.heading);
   }
 }

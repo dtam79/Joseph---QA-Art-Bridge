@@ -1,4 +1,5 @@
 import { Page, Locator } from "@playwright/test";
+import { gotoWithRetry } from "../../../shared/utils/navigation";
 
 export class AdminUsersPage {
   readonly page: Page;
@@ -40,12 +41,6 @@ export class AdminUsersPage {
   }
 
   async goto() {
-    // Admin pages are slow and never fire the load event — navigate with
-    // "commit" and wait for the page heading instead.
-    await this.page.goto("/admin-dashboard/users/", {
-      waitUntil: "commit",
-      timeout: 60000,
-    });
-    await this.heading.waitFor({ state: "visible", timeout: 60000 });
+    await gotoWithRetry(this.page, "/admin-dashboard/users/", this.heading);
   }
 }
