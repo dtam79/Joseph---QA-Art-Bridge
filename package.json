@@ -8,7 +8,8 @@
     "test:browser": "RUN_MODE=browser playwright test",
     "test:headed": "playwright test --headed",
     "test:browser:headed": "RUN_MODE=browser playwright test --headed",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "delete-message": "tsx scripts/delete-telegram-message.ts"
   },
   "keywords": [],
   "author": "",

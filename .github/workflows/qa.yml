@@ -3,6 +3,10 @@ name: QA Automation
 on:
   push:
     branches: [main]
+    # The morning check commits the Telegram message-id state file every day;
+    # that commit must not re-trigger the full QA suite.
+    paths-ignore:
+      - ".github/telegram-last-message-id"
   pull_request:
 
 jobs:

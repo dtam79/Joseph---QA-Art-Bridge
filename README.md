@@ -101,9 +101,9 @@ asserting each is accessible (HTTP < 400, non-empty body) and that login works w
 credentials are configured, then posts a summary to a Telegram group via the custom
 reporter (`projects/morning-check/telegram-reporter.ts`).
 
-It runs automatically every day at 00:00 UTC (= 09:00 KST) from GitHub Actions
-(`.github/workflows/morning-check.yml`) and can be triggered manually from the Actions
-page. Run it locally with:
+It runs automatically every day at 01:30 UTC (= 08:00 MMT Myanmar / 10:30 KST) from
+GitHub Actions (`.github/workflows/morning-check.yml`) and can be triggered manually
+from the Actions page. Run it locally with:
 
 ```bash
 pnpm exec playwright test --project morning-check
@@ -111,6 +111,36 @@ pnpm exec playwright test --project morning-check
 
 Targets and login config live in `projects/morning-check/sites.config.ts`; URLs and
 credentials come from `.env` (or workflow secrets).
+
+## Telegram bot & summary cleanup
+
+The morning check posts its summary to a Telegram group through a custom reporter
+(`projects/morning-check/telegram-reporter.ts`). Every summary is **stamped with its
+own `message_id`** (appended to the message right after it is sent), and the previous
+day's summary is **auto-deleted** when a new one is posted, so the group only ever
+holds the latest summary. Telegram only lets bots delete their own messages, and
+only within 48 hours of sending.
+
+| Command | What it does |
+|---|---|
+| `pnpm exec playwright test --project morning-check` | Run the morning check manually (posts the summary to Telegram) |
+| `pnpm delete-message <message_id>` | Delete a summary by its id (uses `TELEGRAM_CHAT_ID` from `.env`) |
+| `pnpm delete-message <chat_id> <message_id>` | Delete a summary from a specific chat |
+| `pnpm typecheck` | Typecheck specs, pages, shared utils and scripts (also run first in CI) |
+
+How the auto-clean works: after each CI run (`morning-check.yml`) the reporter reads
+the previous `message_id` from the committed state file
+`.github/telegram-last-message-id`, sends the new summary, deletes the previous one,
+then writes the new id back to the file. The workflow commits the updated file with
+`[skip ci]` in the message (and `qa.yml` ignores that path), so the daily record
+commit never re-triggers the QA suite. The reporter also writes the id to the
+GitHub Actions step output (`steps.morning-check.outputs.telegram_message_id`) and
+to the run's step summary, so it stays recoverable from CI logs even if the
+footer edit fails.
+
+Messages sent before the stamping feature was added can't be deleted via the Bot
+API — their ids were never recorded and Telegram does not expose a bot's own
+outgoing message history — so remove those manually from the group.
 
 ## GitHub Actions secrets
 
