@@ -12,10 +12,14 @@ jobs:
         with: { node-version: 20 }
       - run: npm i -g pnpm && pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test --project morning-check
+      # State file read+written by the reporter: the previous day's message_id
+      # (committed by the step below) enables auto-clean of old summaries.
+      - id: morning-check
+        run: pnpm exec playwright test --project morning-check
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_LAST_MESSAGE_ID_FILE: .github/telegram-last-message-id
           ART_BRIDGE_STAGING_URL: ${{ secrets.ART_BRIDGE_STAGING_URL }}
           ART_BRIDGE_PASSWORD: ${{ secrets.ART_BRIDGE_PASSWORD }}
           ART_BRIDGE_USER: ${{ secrets.ART_BRIDGE_USER }}
@@ -27,6 +31,24 @@ jobs:
           OH_GOOD_STAGING_URL: ${{ secrets.OH_GOOD_STAGING_URL }}
           HANDS_MAIN_URL: ${{ secrets.HANDS_MAIN_URL }}
           HANDS_STAGING_URL: ${{ secrets.HANDS_STAGING_URL }}
+      # Commit the latest message_id so the next run knows which summary to
+      # auto-delete. Best-effort: if the push fails (e.g. read-only token),
+      # cleanup just degrades to manual deletion. [skip ci] + qa.yml's
+      # paths-ignore keep this daily commit from re-triggering the QA suite.
+      - name: Record last message id
+        if: steps.morning-check.outputs.telegram_message_id != ''
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/telegram-last-message-id
+          if git diff --cached --quiet; then
+            echo "No change — nothing to record"
+            exit 0
+          fi
+          git commit -m "chore: record last morning-check Telegram message id [skip ci]"
+          git push
+
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4

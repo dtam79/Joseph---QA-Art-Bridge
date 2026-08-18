@@ -11,5 +11,5 @@
     "types": ["node"],
     "outDir": "dist"
   },
-  "include": ["projects", "playwright.config.ts", "shared"]
+  "include": ["projects", "playwright.config.ts", "shared", "scripts"]
 }

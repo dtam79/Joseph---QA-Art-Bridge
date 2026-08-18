@@ -1,4 +1,5 @@
 import type { FullResult, Reporter, Suite } from "@playwright/test/reporter";
+import fs from "node:fs";
 
 // Site emojis to make the summary scannable at a glance.
 const SITE_EMOJI: Record<string, string> = {
@@ -15,6 +16,20 @@ function beautifyReason(reason: string): string {
   if (/No credentials/i.test(reason)) return "no credentials configured";
   if (/Login not configured/i.test(reason)) return "login not configured";
   return reason;
+}
+
+// Read the previous summary's message_id from the committed state file
+// (TELEGRAM_LAST_MESSAGE_ID_FILE, set by morning-check.yml). Returns
+// undefined when absent/unreadable, so auto-clean is a no-op outside CI.
+function readLastMessageId(): number | undefined {
+  const file = process.env.TELEGRAM_LAST_MESSAGE_ID_FILE;
+  if (!file) return undefined;
+  try {
+    const id = Number(fs.readFileSync(file, "utf8").trim());
+    return Number.isInteger(id) && id > 0 ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function formatDuration(ms: number): string {
@@ -122,11 +137,108 @@ class TelegramReporter implements Reporter {
           body: JSON.stringify({ chat_id: chatId, text }),
         }
       );
+      if (!res.ok) {
+        console.log("❌ Telegram API error: " + res.status);
+        return;
+      }
+      const data = (await res.json()) as {
+        ok: boolean;
+        result?: { message_id?: number };
+      };
+      const messageId = data?.result?.message_id;
       console.log(
-        res.ok
-          ? "✅ Telegram summary sent."
-          : "❌ Telegram API error: " + res.status
+        messageId
+          ? `✅ Telegram summary sent. (message_id ${messageId})`
+          : "✅ Telegram summary sent."
       );
+      if (messageId) {
+        // Persist the id to GitHub Actions outputs + step summary BEFORE the
+        // footer edit below, so it stays recoverable from CI even if the edit
+        // fails. GITHUB_OUTPUT makes it addressable as
+        // steps.morning-check.outputs.telegram_message_id in the workflow.
+        if (process.env.GITHUB_OUTPUT) {
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `telegram_message_id=${messageId}\n`
+          );
+        }
+        if (process.env.GITHUB_STEP_SUMMARY) {
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## 🤖 Morning check Telegram summary\n\n` +
+              `- **message_id:** \`${messageId}\`\n` +
+              `- **chat_id:** \`${chatId}\`\n` +
+              `- **delete:** \`pnpm delete-message ${messageId}\`\n`
+          );
+        }
+        // The message_id is only known after the message is sent, so append it
+        // to the summary text via editMessageText (editing keeps the same id).
+        // Every summary then shows its own id, and old ones can be deleted
+        // with the Bot API deleteMessage call.
+        const stamped =
+          `${text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🆔 message_id: ${messageId}`;
+        const editRes = await fetch(
+          `https://api.telegram.org/bot${token}/editMessageText`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              message_id: messageId,
+              text: stamped,
+            }),
+          }
+        );
+        if (!editRes.ok) {
+          console.log(
+            `⚠️  Could not append message_id to the summary: ${editRes.status}`
+          );
+        }
+        // Auto-clean: delete the previous day's summary (best-effort) and
+        // persist this id for the next run. The previous id comes from the
+        // state file committed by the last CI run — see morning-check.yml.
+        const prevId = readLastMessageId();
+        if (prevId && prevId !== messageId) {
+          try {
+            const delRes = await fetch(
+              `https://api.telegram.org/bot${token}/deleteMessage`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: chatId, message_id: prevId }),
+              }
+            );
+            if (delRes.ok) {
+              console.log(
+                `🗑️  Auto-deleted previous summary (message_id ${prevId})`
+              );
+            } else {
+              const body = (await delRes.json().catch(() => ({}))) as {
+                description?: string;
+              };
+              console.log(
+                `ℹ️  Previous summary ${prevId} not auto-deleted: ${
+                  body.description ?? `HTTP ${delRes.status}`
+                } — already removed or too old, continuing`
+              );
+            }
+          } catch (err: any) {
+            console.warn(
+              `⚠️  Auto-delete of previous summary ${prevId} failed: ${err.message}`
+            );
+          }
+        }
+        const lastIdFile = process.env.TELEGRAM_LAST_MESSAGE_ID_FILE;
+        if (lastIdFile) {
+          try {
+            fs.writeFileSync(lastIdFile, String(messageId));
+          } catch (err: any) {
+            console.warn(
+              `⚠️  Could not persist message id to ${lastIdFile}: ${err.message}`
+            );
+          }
+        }
+      }
     } catch (err: any) {
       console.error(
         "❌ Telegram network error (check internet/VPN or hidden spaces in .env):",
