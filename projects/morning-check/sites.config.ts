@@ -4,12 +4,12 @@ export type SiteTarget = {
   url: string;
   /** Extra pages to probe for accessibility (login, register, …). */
   pages?: { label: string; path: string }[];
-  login?: { type: "wp" | "woo"; url: string; userEnv: string; passEnv: string };
+  login?: { type: "wp" | "woo" | "og"; url: string; userEnv: string; passEnv: string };
 };
 
 const e = process.env;
 const L = (
-  type: "wp" | "woo",
+  type: "wp" | "woo" | "og",
   base: string,
   path: string,
   u: string,
@@ -19,6 +19,13 @@ const L = (
 // Auth pages every app exposes (live-verified HTTP 200 on all targets)
 const AUTH_PAGES: { label: string; path: string }[] = [
   { label: "login", path: "/login/" },
+  { label: "register", path: "/register/" },
+];
+
+// Oh-Good uses /log-in/ (not /login/) as its canonical login URL.
+// Confirmed by register.spec.ts: clicking the Login link lands on /log-in/.
+const OH_GOOD_PAGES: { label: string; path: string }[] = [
+  { label: "log-in", path: "/log-in/" },
   { label: "register", path: "/register/" },
 ];
 
@@ -47,8 +54,8 @@ export const SITES: SiteTarget[] = [
     login: L(
       "woo",
       e.HOT_DEAL_MAIN_URL ?? "https://hot-deal.shop",
-      "/my-account/",
-      "HOT_DEAL_USER",
+      "/login/",
+      "HOT_DEAL_EMAIL",
       "HOT_DEAL_PASS"
     ),
   },
@@ -60,24 +67,40 @@ export const SITES: SiteTarget[] = [
     login: L(
       "woo",
       e.HOT_DEAL_STAGING_URL ?? "https://staging.hot-deal.shop",
-      "/my-account/",
-      "HOT_DEAL_USER",
+      "/login/",
+      "HOT_DEAL_EMAIL",
       "HOT_DEAL_PASS"
     ),
   },
 
   // Oh-Good (Main & Staging)
+  // Note: canonical login URL is /log-in/ (not /login/). Next.js app — uses
+  // role-based email+password inputs, not WordPress form IDs.
   {
     name: "Oh-Good",
     env: "main",
     url: e.OH_GOOD_MAIN_URL ?? "https://oh-good.net",
-    pages: AUTH_PAGES,
+    pages: OH_GOOD_PAGES,
+    login: L(
+      "og",
+      e.OH_GOOD_MAIN_URL ?? "https://oh-good.net",
+      "/log-in/",
+      "OH_GOOD_USER",
+      "OH_GOOD_PASS"
+    ),
   },
   {
     name: "Oh-Good",
     env: "staging",
     url: e.OH_GOOD_STAGING_URL ?? "https://staging.oh-good.net",
-    pages: AUTH_PAGES,
+    pages: OH_GOOD_PAGES,
+    login: L(
+      "og",
+      e.OH_GOOD_STAGING_URL ?? "https://staging.oh-good.net",
+      "/log-in/",
+      "OH_GOOD_USER",
+      "OH_GOOD_PASS"
+    ),
   },
 
   // Hands-On Trip — no real URL/credentials configured yet, so it stays

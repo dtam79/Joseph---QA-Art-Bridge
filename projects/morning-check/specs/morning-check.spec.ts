@@ -14,9 +14,13 @@ for (const site of SITES) {
       }
       // Home page plus any extra pages configured for the site (login, register…)
       const targets = [{ label: "home", path: "" }, ...(site.pages ?? [])];
+      // Oh-Good is a Next.js staging server — domcontentloaded can stall under
+      // load. Use "commit" (fires on response headers) for og sites; all other
+      // sites use the stricter domcontentloaded.
+      const waitUntil = site.login?.type === "og" ? "commit" : "domcontentloaded";
       for (const t of targets) {
         const res = await page.goto(site.url + t.path, {
-          waitUntil: "domcontentloaded",
+          waitUntil,
           timeout: 45000,
         });
         expect(
@@ -41,8 +45,8 @@ for (const site of SITES) {
         test.skip(true, "Login not configured yet");
         return;
       }
-      const user = process.env[login.userEnv] ?? "";
-      const pass = process.env[login.passEnv] ?? "";
+      const user = (process.env[login.userEnv] ?? "").trim();
+      const pass = (process.env[login.passEnv] ?? "").trim();
       if (!user || !pass) {
         test.skip(true, "No credentials in .env");
         return;
@@ -85,6 +89,16 @@ for (const site of SITES) {
             waitUntil: "domcontentloaded",
             timeout: 45000,
           });
+        } else if (login.type === "og") {
+          // Oh-Good is a Next.js staging server — "domcontentloaded" can stall
+          // under load. Use "commit" (fires on response headers) then wait for
+          // the email input specifically, mirroring gotoWithRetry in the suite.
+          try {
+            await page.goto(login.url, { waitUntil: "commit", timeout: 45000 });
+          } catch {
+            // Last-resort: bare navigation if even commit times out
+            await page.goto(login.url, { waitUntil: "commit", timeout: 20000 }).catch(() => {});
+          }
         } else {
           await page.goto(login.url, {
             waitUntil: "domcontentloaded",
@@ -102,32 +116,63 @@ for (const site of SITES) {
           }
         }
 
-        // UNIVERSAL locator strategy — covers WordPress, WooCommerce, and custom forms
-        const userInput = page
-          .locator(
-            [
-              "#username", // WooCommerce
-              "#user_login", // WordPress default
-              'input[name="username"]', // Common custom
-              'input[name="log"]', // WordPress wp-login.php
-              'input[type="email"]', // Email-based login
-            ].join(", ")
-          )
-          .first();
+        let userInput;
+        let passInput;
 
-        const passInput = page
-          .locator(
-            [
-              "#password", // WooCommerce / common
-              "#user_pass", // WordPress default
-              'input[name="password"]', // Common custom
-              'input[name="pwd"]', // WordPress wp-login.php
-            ].join(", ")
-          )
-          .first();
+        if (login.type === "woo") {
+          // Hot Deal is a custom React app with a phone/email toggle.
+          // Phone mode is the default — switch to email mode before filling.
+          const phoneModeBar = page.getByText("Mobile Phone", { exact: true });
+          const emailModeOption = page.getByText("Login with Email", { exact: true });
+          const emailInput = page.getByRole("textbox", { name: /^email$/i });
 
-        // CI runners are far from the staging servers — give the form time to render
-        await userInput.waitFor({ state: "visible", timeout: 30000 });
+          // Wait for the login form to render first
+          await phoneModeBar.waitFor({ state: "visible", timeout: 30000 });
+
+          if (!(await emailInput.isVisible({ timeout: 1000 }).catch(() => false))) {
+            await phoneModeBar.click({ force: true });
+            await emailModeOption.waitFor({ state: "visible", timeout: 5000 });
+            await emailModeOption.click({ force: true });
+            await emailInput.waitFor({ state: "visible", timeout: 8000 });
+          }
+
+          userInput = emailInput;
+          passInput = page.getByRole("textbox", { name: /^password$/i });
+        } else if (login.type === "og") {
+          // Oh-Good is a Next.js app — uses semantic role-based inputs.
+          // No password gate, no phone toggle — just wait for the email field.
+          userInput = page.getByRole("textbox", { name: /^email$/i });
+          passInput = page.getByRole("textbox", { name: /^password$/i });
+          await userInput.waitFor({ state: "visible", timeout: 30000 });
+        } else {
+          // WordPress / Art Bridge: standard WP form IDs
+          userInput = page
+            .locator(
+              [
+                "#username", // WooCommerce
+                "#user_login", // WordPress default
+                'input[name="username"]', // Common custom
+                'input[name="log"]', // WordPress wp-login.php
+                'input[type="email"]', // Email-based login
+              ].join(", ")
+            )
+            .first();
+
+          passInput = page
+            .locator(
+              [
+                "#password", // WooCommerce / common
+                "#user_pass", // WordPress default
+                'input[name="password"]', // Common custom
+                'input[name="pwd"]', // WordPress wp-login.php
+              ].join(", ")
+            )
+            .first();
+
+          // CI runners are far from the staging servers — give the form time to render
+          await userInput.waitFor({ state: "visible", timeout: 30000 });
+        }
+
         await userInput.fill(user);
         await passInput.fill(pass);
         await page
@@ -137,10 +182,13 @@ for (const site of SITES) {
 
         // Verify login success
         if (login.type === "woo") {
-          // Use .first() to handle multiple "Log out" links
-          await expect(
-            page.getByRole("link", { name: /log out/i }).first()
-          ).toBeVisible({ timeout: 15000 });
+          // Hot Deal redirects to home/profile on success — no "Log out" text
+          // link exists in the nav. A URL change away from /login/ is the
+          // reliable signal that authentication succeeded.
+          await expect(page).not.toHaveURL(/\/login\/?/, { timeout: 15000 });
+        } else if (login.type === "og") {
+          // Oh-Good redirects away from /log-in/ on success.
+          await expect(page).not.toHaveURL(/\/log-in\/?/, { timeout: 15000 });
         } else {
           // Art Bridge's custom /login/ page renders the wp-admin content inline
           // at /login/ after a successful login — "left /login/" alone is too
