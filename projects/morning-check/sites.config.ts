@@ -55,7 +55,7 @@ export const SITES: SiteTarget[] = [
       "woo",
       e.HOT_DEAL_MAIN_URL ?? "https://hot-deal.shop",
       "/login/",
-      "HOT_DEAL_USER",
+      "HOT_DEAL_EMAIL",
       "HOT_DEAL_PASS"
     ),
   },
@@ -68,7 +68,7 @@ export const SITES: SiteTarget[] = [
       "woo",
       e.HOT_DEAL_STAGING_URL ?? "https://staging.hot-deal.shop",
       "/login/",
-      "HOT_DEAL_USER",
+      "HOT_DEAL_EMAIL",
       "HOT_DEAL_PASS"
     ),
   },
